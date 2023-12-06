@@ -23,7 +23,7 @@ function App() {
 						<Notification />
 						<BrowserRouter>
 							<Switch>
-								{routes.map(({ href, exact, component, permissions, loginRequired }) => (
+								{routes.map(({ href, exact, component, permissions, loginRequired,isLayout }) => (
 									<RouteLayout
 										key={href}
 										path={href}
@@ -31,6 +31,7 @@ function App() {
 										component={component}
 										permissions={permissions}
 										loginRequired={loginRequired}
+										isLayout = {!!isLayout}
 									/>
 								))}
 								<Redirect to={ROUTE_PATHS.SignIn} />

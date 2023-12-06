@@ -12,6 +12,7 @@ import accountService from "../../services/account/account.service";
 import LocalUtils from "../../utils/local";
 import { LOCAL_STORAGE_KEYS } from "../../constants/local";
 import { ROUTE_PATHS } from "../../constants/url-config";
+import Loading from "../../components/atoms/loading/loading";
 interface Props extends RouteChildrenProps {}
 
 export default function SignIn() {
@@ -56,11 +57,12 @@ export default function SignIn() {
         message: 'Đăng nhập thành công',
         description: `Xin chào, ${loginData.username}!`,
         duration: 3,
+       
       });
       setTimeout(function() {
-        window.location.href = '/'; // Replace with the actual path to your home page
+        window.location.href = '/'; 
       }, 3000);
-    } else if (response.status === 401) {
+    } else if (response.status === 500) {
       // Unauthorized - Incorrect email or password
       notification.error({
         message: 'Lỗi Đăng Nhập',
@@ -77,8 +79,10 @@ export default function SignIn() {
     // Handle exceptions
     console.error(error);
     notification.error({
+      className: "notification__item notification__item--error",
       message: 'Lỗi',
-      description: 'Có lỗi xảy ra trong quá trình đăng nhập. Vui lòng thử lại sau.',
+      description: 'Tên đăng nhập hoặc mật khẩu không chính xác.',
+      duration:3
     });
   } finally {
     setLoading(false);
@@ -88,6 +92,7 @@ export default function SignIn() {
   return (
     <div className="signIn">
       <Row>
+        
         <Col span={12} className="signIn__banner">
 			<img src={banner} alt="" />
 		</Col>
@@ -145,6 +150,8 @@ export default function SignIn() {
                 Đăng nhập
               </Button>
           <p className="signIn__footer">Bạn chưa có tài khoản? <Link to={ROUTE_PATHS.SignUp}>Đăng ký ngay</Link></p>
+          <p className="signIn__footer">Hoặc</p>
+          <p className="signIn__footer"><Link to={ROUTE_PATHS.Home}>Trở về trang chủ</Link></p>
           </Form>
         </Col>
       </Row>

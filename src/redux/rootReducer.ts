@@ -7,6 +7,8 @@ import addressReducer from "./slices/address"
 import reviewReducer from "./slices/review"
 import customerReducer from "./slices/customer"
 import userReducer from "./slices/user"
+import voucherReducer from "./slices/voucher"
+import historyReducer from "./slices/history"
 // ----------------------------------------------------------------------
 
 export const rootPersistConfig = {
@@ -30,7 +32,9 @@ const rootReducer = combineReducers({
   address:addressReducer,
   review:reviewReducer,
   customer:customerReducer,
-  user:userReducer
+  user:userReducer,
+  voucher:voucherReducer,
+  history:historyReducer,
 });
 
 export default rootReducer;

@@ -1,0 +1,130 @@
+$primary-color: #4CAF50;
+$secondary-color: #45a049;
+
+.success-cart-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #fff;
+    max-width: 600px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+
+    .animation-container {
+        position: relative;
+        margin-bottom: 30px;
+
+        .confetti {
+            position: relative;
+            width: 100px;
+            height: 100px;
+
+            .confetti-piece {
+                position: absolute;
+                width: 20px;
+                height: 20px;
+                background-color: $primary-color;
+                border-radius: 50%;
+                animation: confetti-fall 1s ease-in-out infinite;
+
+                &:nth-child(2) {
+                    left: 25%;
+                    animation-delay: 0.1s;
+                }
+
+                &:nth-child(3) {
+                    left: 50%;
+                    animation-delay: 0.2s;
+                }
+
+                &:nth-child(4) {
+                    left: 75%;
+                    animation-delay: 0.3s;
+                }
+            }
+        }
+
+        .circle {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: $secondary-color;
+            border-radius: 50%;
+            animation: scale-up 1s ease-in-out infinite;
+            opacity: 0.7;
+        }
+    }
+
+    .content {
+        text-align: center;
+
+        .success-heading {
+            color: $primary-color;
+            font-size: 2em;
+        }
+
+        .thank-you {
+            font-size: 1.2em;
+            margin-top: 10px;
+        }
+
+        .order-details {
+            margin-top: 20px;
+
+            ul {
+                list-style-type: none;
+                padding: 0;
+                li {
+                    margin: 5px 0;
+                }
+            }
+        }
+
+        .total {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .confirmation-message {
+            margin-top: 20px;
+            color: #777;
+        }
+
+        .back-to-home-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: $primary-color;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+
+            &:hover {
+                background-color: $secondary-color;
+            }
+        }
+    }
+}
+
+@keyframes confetti-fall {
+    0% {
+        transform: translateY(0) rotate(45deg);
+    }
+    100% {
+        transform: translateY(100vh) rotate(45deg);
+    }
+}
+
+@keyframes scale-up {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+}

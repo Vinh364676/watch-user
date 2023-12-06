@@ -65,9 +65,11 @@ const RouteLayout = ({ component: Component, ...rest }: any) => {
   const homePage = ROUTE_PATHS.Home;
   const [pageTitle, setPageTitle] = React.useState<React.ReactNode>("");
   const { isAuthenticated } = useAuthContext();
+  console.log("rest: ",rest)
 
 
   const isLoginRequired = rest.loginRequired;
+  const isLayout = rest.isLayout;
   const expectedPermissions = rest.permissions as PERMISSION[];
 
   React.useEffect(() => {
@@ -80,6 +82,10 @@ const RouteLayout = ({ component: Component, ...rest }: any) => {
   }, [isAuthenticated, isLoginRequired, expectedPermissions]);
 
   const renderLayout = () => {
+    console.log("islayout: ",isLayout)
+    if(isLayout){
+      return <Component />
+    }
     if (isAuthenticated) {
       return (
           <AnonymousLayout>

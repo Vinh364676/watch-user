@@ -24,7 +24,7 @@ const ProductShop = () => {
   useEffect(() => {
     dispatch(getCategory({ pageIndex: 1, pageSize: 100 }));
     dispatch(getBrand({ pageIndex: 1, pageSize: 100 }));
-    dispatch(getProduct({ pageIndex: 1, pageSize: 100 }));
+    dispatch(getProduct({ pageIndex: 1, pageSize: 6 }));
   }, []);
   
   const onPriceChange = (value: [number, number]) => {
@@ -73,49 +73,58 @@ const ProductShop = () => {
       duration: 3,
     });
   };
-
-  const handleItem = (productId: any) => {
-    try {
-      showNotification();
-      const productSessionStorageKey = 'productList';
-      let productList: { id: string; quantity: number }[] = [];
-      
-      // Get the product list from sessionStorage
-      const productSessionStorage = sessionStorage.getItem(productSessionStorageKey);
-      
-      // If there is data in sessionStorage, retrieve and convert it to an array of objects
-      if (productSessionStorage) {
-        productList = JSON.parse(productSessionStorage);
-      }
-  
-      // Check if productId already exists in the list
-      const existingIndex = productList.findIndex(item => item.id === productId);
-  
-      if (existingIndex !== -1) {
-        // If it exists, increment the quantity
-        console.log(`Product with ID ${productId} already exists. Incrementing quantity.`);
-        // Example: incrementing quantity by 1
-        productList[existingIndex].quantity += 1;
-      } else {
-        // If it doesn't exist, add it to the list with a quantity of 1
-        productList.push({ id: productId, quantity: 1 });
-      }
-  
-      // Save the product list to sessionStorage after converting it to a JSON string
-      sessionStorage.setItem(productSessionStorageKey, JSON.stringify(productList));
-  
-      console.log("Clicked on product with ID:", productId);
-      
-      // Return the new array containing the id and quantity of the added product
-      return [{ id: productId, quantity: productList.find(item => item.id === productId)?.quantity || 1 }];
-      
-    } catch (error) {
-      console.error('Error handling product:', error);
-      return []; // Return an empty array if there's an error
-    }
+  const handleItem = ( productId: string) => {
+   
   };
+
+  // const handleItem = (userId: string, productId: string) => {
+  //   try {
+  //     showNotification();
+  //     const productSessionStorageKey = `productList_${userId}`;
+  //     let productList: { id: string; quantity: number }[] = [];
   
+  //     // Get the product list from sessionStorage
+  //     const productSessionStorage = sessionStorage.getItem(productSessionStorageKey);
   
+  //     // If there is data in sessionStorage, retrieve and convert it to an array of objects
+  //     if (productSessionStorage) {
+  //       productList = JSON.parse(productSessionStorage);
+  //     }
+  
+  //     // Check if productId already exists in the list
+  //     const existingIndex = productList.findIndex((item) => item.id === productId);
+  
+  //     if (existingIndex !== -1) {
+  //       // If it exists, increment the quantity
+  //       console.log(`Product with ID ${productId} already exists. Incrementing quantity.`);
+  //       // Example: incrementing quantity by 1
+  //       productList[existingIndex].quantity += 1;
+  //     } else {
+  //       // If it doesn't exist, add it to the list with a quantity of 1
+  //       productList.push({ id: productId, quantity: 1 });
+  //     }
+  
+  //     // Save the product list to sessionStorage after converting it to a JSON string
+  //     sessionStorage.setItem(productSessionStorageKey, JSON.stringify(productList));
+  
+  //     console.log("Clicked on product with ID:", productId);
+  
+  //     // Return the new array containing the id and quantity of the added product
+  //     return [{ id: productId, quantity: productList.find((item) => item.id === productId)?.quantity || 1 }];
+  //   } catch (error) {
+  //     console.error('Error handling product:', error);
+  //     return []; // Return an empty array if there's an error
+  //   }
+  // };
+  const accessToken = LocalUtils.get(LOCAL_STORAGE_KEYS.ACCESS_TOKEN);
+
+  // Decode the access token and explicitly assert the type
+  const decodedToken = accessToken ? jwt.decode(accessToken) as jwt.JwtPayload : null;
+  
+  // Check if decodedToken is not null and has the expected property
+  const username = decodedToken && typeof decodedToken === 'object'
+    ? decodedToken['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress']
+    : null;
   return (
     <div className="containerCustom product sectionCustom">
       <Row gutter={[24, 0]}>
@@ -185,20 +194,23 @@ const ProductShop = () => {
           </Collapse>
         </Col>
         <Col xl={18}>
+          
         <Row gutter={[24, 24]}>
       {filteredProducts.length > 0 ? (
         filteredProducts.map((product, index) => {
           const brand = brandList.find(brand => brand.id === product.brandId);
           return (
             <Col key={index} xl={8}>
-              <CardComponent
-                href={ROUTE_PATHS.ProductDetail.replace(":id", product.id.toString())}
-                image={product.thumnail}
-                name={product.productName}
-                brand={brand ? brand.name : 'Unknown Brand'}
-                price={product.price}
-                onClickItem={() => handleItem(product.id)}
-              />
+             <CardComponent
+  href={ROUTE_PATHS.ProductDetail.replace(":id", product.id.toString())}
+  image={product.thumnail}
+  name={product.productName}
+  brand={brand ? brand.name : 'Unknown Brand'}
+  price={product.price}
+  productId={product.id.toString()}
+  onClickItem={(productId) => handleItem(productId)}
+/>
+
             </Col>
           );
         })

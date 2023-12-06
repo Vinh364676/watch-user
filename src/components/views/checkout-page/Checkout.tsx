@@ -9,6 +9,7 @@ import {
   Row,
   Steps,
   message,
+  notification,
 } from "antd";
 import React, { useEffect, useState } from "react";
 import {
@@ -22,20 +23,69 @@ import "./Checkout.scss";
 import { Link } from "react-router-dom";
 import { ROUTE_PATHS } from "../../../constants/url-config";
 import { dispatch, useSelector } from "../../../redux/store";
-import { createAddress, getAddress } from "../../../redux/slices/address";
+import {
+  createAddress,
+  deleteAddress,
+  getAddress,
+} from "../../../redux/slices/address";
+import deleteIcon from "../../../assets/images/banner/deleteIcon.svg";
 import moment from "moment";
+import { getProduct } from "../../../redux/slices/product";
+import LocalUtils from "../../../utils/local";
+import { LOCAL_STORAGE_KEYS } from "../../../constants/local";
+import jwt from "jsonwebtoken";
+import { getVoucher } from "../../../redux/slices/voucher";
+import { useAuthContext } from "../../../hooks/useAuthContext";
+import { createBill, createBillVNpay } from "../../../redux/slices/bill";
 const Checkout = () => {
-  const [value, setValue] = useState(1);
-  const onChange = (e: any) => {
-    // console.log('radio checked', e.target.value);
-    setValue(e.target.value);
-  };
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { isAuthenticated } = useAuthContext();
   const [current, setCurrent] = useState(0);
   const { addressList } = useSelector((state) => state.address);
+  const { productList } = useSelector((state) => state.product);
+  const { voucherList } = useSelector((state) => state.voucher);
   useEffect(() => {
     dispatch(getAddress({ pageIndex: 1, pageSize: 100 }));
+    dispatch(getProduct({ pageIndex: 1, pageSize: 100 }));
+    dispatch(getVoucher({ pageIndex: 1, pageSize: 100 }));
   }, []);
+  const accessToken = LocalUtils.get(LOCAL_STORAGE_KEYS.ACCESS_TOKEN);
+
+  // Decode the access token and explicitly assert the type
+  const decodedToken = accessToken
+    ? (jwt.decode(accessToken) as jwt.JwtPayload)
+    : null;
+
+  // Check if decodedToken is not null and has the expected property
+  const username =
+    decodedToken && typeof decodedToken === "object"
+      ? decodedToken[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
+        ]
+      : null;
+
+  // Use the username to create the product session storage key
+  const productSessionStorageKey = `productList_${username}`;
+
+  // Get the product list from sessionStorage
+  const storedProductListString = sessionStorage.getItem(
+    productSessionStorageKey
+  );
+  const storedProductList = storedProductListString
+    ? JSON.parse(storedProductListString)
+    : [];
+
+  const combinedProductList = productList.map((product) => {
+    const storedProduct = storedProductList.find(
+      (item: any) => String(item.id) === String(product.id)
+    );
+
+    return {
+      ...product,
+      product: storedProduct ? storedProduct.id : 0,
+      quantity: storedProduct ? storedProduct.quantity : 0,
+    };
+  });
   const next = () => {
     setCurrent(current + 1);
   };
@@ -66,9 +116,201 @@ const Checkout = () => {
     const defaultCheckedAddress = addressList.find(
       (address) => address.status === true
     );
-    // If a default checked address is found, return its index; otherwise, return 0 as a fallback
     return defaultCheckedAddress?.id;
   };
+  useEffect(() => {
+    const defaultCheckedAddress = addressList.find(
+      (address) => address.status === true
+    );
+
+    if (defaultCheckedAddress) {
+      setValue(defaultCheckedAddress.id);
+    }
+  }, [addressList]); // This effect will run whenever addressList changes
+
+  const onChange = (e: any) => {
+    setValue(e.target.value);
+  };
+  const [value, setValue] = useState(getDefaultCheckedIndex());
+  const [isModalOpenDelete, setIsModalOpenDelete] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
+    null
+  );
+  const showModalDelete = (id: number) => {
+    setIsModalOpenDelete(true);
+    setSelectedAddressId(id);
+  };
+  const handleOkDelete = () => {
+    if (selectedAddressId) {
+      const selectedAddress = addressList.find(
+        (address) => address.id === selectedAddressId
+      );
+
+      // Check if the selected address has status === true
+      if (selectedAddress && selectedAddress.status === true) {
+        // Handle the case where the address cannot be deleted
+        notification.error({
+          className: "notification__item notification__item--error",
+          message: "Lỗi",
+          description: "Địa chỉ có trạng thái mặc định không thể xóa",
+          duration: 3,
+        });
+      } else {
+        // Dispatch the deleteAddress action with the selected address ID
+        dispatch(deleteAddress(selectedAddressId));
+        notification.success({
+          className: "notification__item",
+          message: "Xóa địa chỉ thành công",
+          duration: 3,
+        });
+      }
+    }
+
+    setIsModalOpenDelete(false);
+  };
+  const handleCancelDelete = () => {
+    setIsModalOpenDelete(false);
+  };
+  const [valueRadio, setValueRadio] = useState(99); // Default value, assuming free shipping
+
+  const onChangeShip = (e: any) => {
+    setValueRadio(e.target.value);
+  };
+  const totalProductAmount = combinedProductList
+    .filter((product) => product.product !== 0)
+    .reduce((total, product) => total + product.price * product.quantity, 0);
+
+  // Calculate tax (8% of total product amount)
+  const tax = 0.08 * totalProductAmount;
+
+  // Calculate shipping cost
+  const shippingCost = valueRadio === 100 ? 30000 : 0; // 30,000 VND if valueRadio is 100, else 0
+
+  // Calculate total order amount
+  const totalOrderAmount = totalProductAmount + tax + shippingCost;
+  const showNotification = () => {
+    notification.success({
+      className: "notification__item",
+      message: "Sử dụng mã thành công",
+      //   description: 'Sản phẩm đã được xóa thành công!',
+      duration: 3,
+    });
+  };
+  const showNotificationError = () => {
+    notification.error({
+      className: "notification__item notification__item--error",
+      message: "Mã code sai hoặc hết hạn",
+      //   description: 'Sản phẩm đã được xóa thành công!',
+      duration: 3,
+    });
+  };
+  const [a, setA] = useState(totalProductAmount + tax + shippingCost);
+  const [voucherId, setVoucherId] = useState<string | null>(null);
+  const onFinishVoucher = (values: any) => {
+    const enteredCode = values.code;
+
+    // Check if enteredCode exists in voucherList
+    const voucher = voucherList.find((voucher) => voucher.code === enteredCode);
+
+    const isCodeValid = voucherList.some(
+      (voucher) => voucher.code === enteredCode
+    );
+
+    let newTotalOrderAmount;
+
+    if (isCodeValid && voucher) {
+      console.log("Matching voucher found. Code is valid:", enteredCode);
+      showNotification();
+      newTotalOrderAmount =
+        totalProductAmount -
+        totalProductAmount * (voucher.value ?? 0) +
+        tax +
+        shippingCost;
+
+      // Set voucherId in state
+      setVoucherId(String(voucher.id));
+    } else {
+      showNotificationError();
+      newTotalOrderAmount = totalProductAmount + tax + shippingCost;
+
+      // Set voucherId as empty string if no valid voucher
+      setVoucherId(null);
+    }
+    setA(newTotalOrderAmount);
+  };
+  const dataToSend = {
+    products: combinedProductList
+      .filter((product) => product.product !== 0)
+      .map((product) => ({
+        id: product.id,
+        quantity: product.quantity,
+        price: product.price,
+      })),
+    address: addressList
+      .filter((address) => address.id === value)
+      .map((address) => ({
+        id: address.id,
+        houseNumber: address.houseNumber,
+        ward: address.ward,
+        district: address.district,
+        province: address.province,
+      }))[0],
+
+    voucherId: voucherId,
+
+    totalAmount: a,
+  };
+  const [radioValue, setRadioValue] = useState('a');
+  const onRadioChange = (e:any) => {
+    setRadioValue(e.target.value);
+  };
+  const [paymentInfo, setPaymentInfo] = useState(null);
+  const submitCart = () => {
+    const requestBody = {
+      deliverAddress:
+        dataToSend.address.houseNumber +
+        ", " +
+        dataToSend.address.ward +
+        ", " +
+        dataToSend.address.district +
+        ", " +
+        dataToSend.address.province,
+      createDate: new Date().toISOString(),
+      totalPrice: dataToSend.totalAmount,
+      voucherId: dataToSend.voucherId ?? null,
+      orderStatus: "string", // Replace 'string' with the actual order status
+      note: "string", // Replace 'string' with any additional note if needed
+      details: dataToSend.products.map((product) => ({
+        productId: product.id,
+        unitPrice: product.price,
+        quantity: product.quantity,
+      })),
+    };
+
+    if (radioValue === 'a') {
+      dispatch(createBill(requestBody));
+    }  else if (radioValue === 'b') {
+      dispatch(createBillVNpay(requestBody))
+        .then(response => handlePaymentResponse(response));
+    }
+    const handlePaymentResponse = (response:any) => {
+      // Check if response.payload.paymentUrl is defined before accessing its properties
+      if (response.payload && response.payload.paymentUrl && response.payload.paymentUrl.result) {
+        const paymentUrl = response.payload.paymentUrl.result;
+    
+        // Redirect to the payment URL
+        window.location.href = paymentUrl;
+      } else {
+        // Handle the case where paymentUrl or its result property is undefined
+        console.error('Invalid payment response:', response);
+        // You might want to show an error message to the user or take appropriate action.
+      }
+      
+      
+    };
+    
+  };
+
 
   const steps = [
     {
@@ -112,10 +354,16 @@ const Checkout = () => {
                       </div>
                     </Radio>
                     <div className="radio__action">
-                      <Button className="radio__action__button">
+                      <Button
+                        className="radio__action__button"
+                        onClick={showModal}
+                      >
                         <EditOutlined />
                       </Button>
-                      <Button className="radio__action__button">
+                      <Button
+                        className="radio__action__button"
+                        onClick={() => showModalDelete(address.id)}
+                      >
                         <DeleteOutlined />
                       </Button>
                     </div>
@@ -131,7 +379,18 @@ const Checkout = () => {
                     Tổng sản phẩm
                   </p>
                   <p className="subTitle cart__right__content__subTotal">
-                    $2347
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(
+                      combinedProductList
+                        .filter((product) => product.product !== 0)
+                        .reduce(
+                          (total, product) =>
+                            total + product.price * product.quantity,
+                          0
+                        )
+                    )}
                   </p>
                 </div>
                 <div className="cart__right__content">
@@ -139,16 +398,24 @@ const Checkout = () => {
                   <p className="subTitle cart__right__content__text">8%</p>
                 </div>
                 <div className="cart__right__content">
-                  <p className="subTitle cart__right__content__text">
-                    Vận chuyển
-                  </p>
-                  <p className="subTitle cart__right__content__text">$29</p>
-                </div>
-                <div className="cart__right__content">
                   <p className="subTitle cart__right__content__subTotal">
                     Tổng cộng
                   </p>
-                  <p className="subTitle cart__right__content__subTotal">$29</p>
+                  <p className="subTitle cart__right__content__subTotal">
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(
+                      combinedProductList
+                        .filter((product) => product.product !== 0)
+                        .reduce(
+                          (total, product) =>
+                            total + product.price * product.quantity,
+                          0
+                        ) *
+                        (1 + 0.08) // Adding 8% tax
+                    )}
+                  </p>
                 </div>
               </div>
             </Col>
@@ -173,8 +440,8 @@ const Checkout = () => {
             <Col xl={14}>
               <h5 className="checkout__title">Phương thức vận chuyển</h5>
               <Radio.Group
-                onChange={onChange}
-                value={value}
+                onChange={onChangeShip}
+                value={valueRadio}
                 defaultValue={99}
                 className="radio__custom"
               >
@@ -202,10 +469,10 @@ const Checkout = () => {
                     <div className="radio__item">
                       <div className="radio__address radio__address__ship">
                         <p className="radio__address__desc radio__address__desc__ship radio__address__desc__ship__title">
-                          $8.50
+                          30.000đ
                         </p>
                         <p className="radio__address__desc radio__address__desc__ship">
-                          Giao hàng nhanh
+                          Giao hàng hỏa tốc
                         </p>
                       </div>
                     </div>
@@ -226,7 +493,18 @@ const Checkout = () => {
                     Tổng sản phẩm
                   </p>
                   <p className="subTitle cart__right__content__subTotal">
-                    $2347
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(
+                      combinedProductList
+                        .filter((product) => product.product !== 0)
+                        .reduce(
+                          (total, product) =>
+                            total + product.price * product.quantity,
+                          0
+                        )
+                    )}
                   </p>
                 </div>
                 <div className="cart__right__content">
@@ -237,13 +515,21 @@ const Checkout = () => {
                   <p className="subTitle cart__right__content__text">
                     Vận chuyển
                   </p>
-                  <p className="subTitle cart__right__content__text">$29</p>
+                  <p className="subTitle cart__right__content__text">
+                    {valueRadio === 100 ? "30.000đ" : "Miễn phí"}
+                  </p>
                 </div>
                 <div className="cart__right__content">
                   <p className="subTitle cart__right__content__subTotal">
                     Tổng cộng
                   </p>
-                  <p className="subTitle cart__right__content__subTotal">$29</p>
+                  <p className="subTitle cart__right__content__subTotal">
+                    {" "}
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(totalOrderAmount)}
+                  </p>
                 </div>
               </div>
             </Col>
@@ -255,64 +541,121 @@ const Checkout = () => {
       title: "Thanh toán",
       content: (
         <>
+         <Radio.Group defaultValue="a" size="large" onChange={onRadioChange}>
+      <Radio.Button value="a">Thanh toán khi nhận hàng</Radio.Button>
+      <Radio.Button value="b">Thanh toán qua VNpay</Radio.Button>
+    </Radio.Group>
           <Row gutter={[96, 0]} className="checkout__row">
             <Col xl={12} className="checkout__pay">
               <div className="checkout__pay__item">
                 <h5 className="checkout">Summary</h5>
-                <div className="checkout__pay__product">
-                  <div className="checkout__pay__product__name">
-                    <img
-                      className="checkout__pay__product__img"
-                      src={productImg}
-                      alt=""
-                    />
+                {combinedProductList
+                  .filter((product) => product.product !== 0)
+                  .map((product) => (
+                    <div key={product.id} className="checkout__pay__product">
+                      <div className="checkout__pay__product__name">
+                        <img
+                          className="checkout__pay__product__img"
+                          src={product.thumnail}
+                          alt=""
+                        />
+                        <p className="checkout__pay__product__descSub">
+                          {product.productName} x {product.quantity}
+                        </p>
+                      </div>
+                      <p className="checkout__pay__product__descSub">
+                        {new Intl.NumberFormat("vi-VN", {
+                          style: "currency",
+                          currency: "VND",
+                        }).format(product.price * product.quantity)}
+                      </p>
+                    </div>
+                  ))}
+                {value && (
+                  <>
+                    <p className="checkout__pay__product__subTitle">Address</p>
                     <p className="checkout__pay__product__descSub">
-                      Apple iPhone 14 Pro Max 128Gb x 1
+                      {addressList.map((address) => {
+                        if (address.id === value) {
+                          return (
+                            <div key={address.id}>
+                              <p>
+                                {address.houseNumber} {address.ward},{" "}
+                                {address.district}, {address.province}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
                     </p>
-                  </div>
-                  <p className="checkout__pay__product__descSub">$1399</p>
-                </div>
-                <div className="checkout__pay__product">
-                  <div className="checkout__pay__product__name">
-                    <img
-                      className="checkout__pay__product__img"
-                      src={productImg}
-                      alt=""
-                    />
-                    <p className="checkout__pay__product__descSub">
-                      Apple iPhone 14 Pro Max 128Gb x 1
-                    </p>
-                  </div>
-                  <p className="checkout__pay__product__descSub">$1399</p>
-                </div>
-                <div className="checkout__pay__product">
-                  <div className="checkout__pay__product__name">
-                    <img
-                      className="checkout__pay__product__img"
-                      src={productImg}
-                      alt=""
-                    />
-                    <p className="checkout__pay__product__descSub">
-                      Apple iPhone 14 Pro Max 128Gb x 1
-                    </p>
-                  </div>
-                  <p className="checkout__pay__product__descSub">$1399</p>
-                </div>
-                <p className="checkout__pay__product__subTitle">Address</p>
-                <p className="checkout__pay__product__descSub">
-                  1131 Dusty Townline, Jacksonville, TX 40322
-                </p>
+                  </>
+                )}
+                <Form
+                  labelCol={{
+                    span: 24,
+                  }}
+                  wrapperCol={{
+                    span: 24,
+                  }}
+                  onFinish={onFinishVoucher}
+                >
+                  <Row >
+                    <Col xl={24}>
+                    <Form.Item
+                      label="Mã giảm giá"
+                      name="code"
+                      requiredMark="optional"
+                      // rules={[
+                      //   {
+                      //     required: true,
+                      //     message: "Vui lòng nhập mã code!",
+                      //   },
+                      // ]}
+                    >
+                      <Row gutter={[20, 0]}>
+                      <Col xl={18}>
+                        <Input
+                          allowClear
+                          placeholder="Nhập mã (nếu có)"
+                          className="cart__right__input"
+                        />
+                      </Col>
+                      <Col xl={6}>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        className="cart__right__button"
+                      >
+                        Kiểm tra
+                      </Button>
+                    </Col>
+                      </Row>
+                      
+                    </Form.Item>
+                    </Col>
+                   
 
-                <p className="checkout__pay__product__subTitle">
-                  Shipment method
-                </p>
-                <p className="checkout__pay__product__descSub">Free</p>
+                    
+                  </Row>
+                </Form>
                 <div className="cart__right__content ">
                   <p className="subTitle cart__right__content__subTotal">
                     Tổng sản phẩm
                   </p>
                   <p className="subTitle cart__right__content__subTotal">
-                    $2347
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(
+                      combinedProductList
+                        .filter((product) => product.product !== 0)
+                        .reduce(
+                          (total, product) =>
+                            total + product.price * product.quantity,
+                          0
+                        )
+                    )}
                   </p>
                 </div>
                 <div className="cart__right__content">
@@ -323,15 +666,28 @@ const Checkout = () => {
                   <p className="subTitle cart__right__content__text">
                     Vận chuyển
                   </p>
-                  <p className="subTitle cart__right__content__text">$29</p>
+                  <p className="subTitle cart__right__content__text">
+                    {valueRadio === 100 ? "30.000đ" : "Miễn phí"}
+                  </p>
                 </div>
                 <div className="cart__right__content">
                   <p className="subTitle cart__right__content__subTotal">
                     Tổng cộng
                   </p>
-                  <p className="subTitle cart__right__content__subTotal">$29</p>
+                  <p className="subTitle cart__right__content__subTotal">
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(a)}
+                  </p>
                 </div>
               </div>
+             
+            </Col>
+            <Col>
+           
+    <Button onClick={submitCart}>Đặt hàng</Button>
+    
             </Col>
           </Row>
         </>
@@ -347,6 +703,15 @@ const Checkout = () => {
     try {
       // Call the createAddress action with the form values
       const response = await dispatch(createAddress(values));
+      notification.success({
+        className: "notification__item",
+        message: "Thêm địa chỉ thành công",
+        duration: 3,
+      });
+      setTimeout(function () {
+        window.location.href = "/checkout";
+      }, 3000);
+      setIsModalOpen(false);
       console.log("Response:", response);
     } catch (error) {
       console.error("Error:", error);
@@ -392,6 +757,7 @@ const Checkout = () => {
           onCancel={handleCancel}
           centered={true}
           className="modal__address"
+          footer={false}
         >
           <Form
             name="basic"
@@ -419,6 +785,18 @@ const Checkout = () => {
                       required: true,
                       message: "Vui lòng nhập số điện thoại!",
                     },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        // Sử dụng biểu thức chính quy để kiểm tra số điện thoại
+                        const phoneRegex = /^0\d{9,10}$/;
+                        if (value && !phoneRegex.test(value)) {
+                          return Promise.reject(
+                            "Số điện thoại phải bắt đầu bằng 0 và đủ 10 hoặc 11 số!"
+                          );
+                        }
+                        return Promise.resolve();
+                      },
+                    }),
                   ]}
                 >
                   <Input
@@ -517,8 +895,30 @@ const Checkout = () => {
                 </Form.Item>
               </Col>
             </Row>
-            <Button htmlType="submit">Thêm</Button>
+            <Button
+              htmlType="submit"
+              type="primary"
+              className="formAddress__button"
+            >
+              Thêm
+            </Button>
           </Form>
+        </Modal>
+        <Modal
+          centered
+          open={isModalOpenDelete}
+          onOk={handleOkDelete}
+          onCancel={handleCancelDelete}
+          className="modal__product"
+          okType={"danger"}
+        >
+          <img src={deleteIcon} alt="" className="modal__product__icon" />
+          <div className="modal__product__content">
+            <h2 className="modal__product__content--title">Xóa địa chỉ</h2>
+            <p className="modal__product__content--desc">
+              Bạn có chắc chắn muốn xóa địa chỉ này không?
+            </p>
+          </div>
         </Modal>
       </div>
     </div>

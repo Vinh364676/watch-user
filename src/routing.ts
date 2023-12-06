@@ -1,7 +1,9 @@
+import SuccessCart from "./components/views/success-cart/SuccessCart";
 import { ROUTE_PATHS } from "./constants/url-config";
 import { PERMISSION } from "./guards/role-guard";
 import CartPage from "./pages/cart/Cart";
 import CheckoutPage from "./pages/checkout/Checkout";
+import HistoryCartPage from "./pages/history-cart/HistoryCart";
 import HomePage from './pages/home/home';
 import ProductDetail from "./pages/product-detail/ProductDetail";
 import ShopPage from "./pages/shop/Shop";
@@ -20,6 +22,7 @@ export interface Route {
     loginRequired?: boolean
     permissions: PERMISSION[]
     subMenu?: SubMenu[]
+    isLayout?: boolean
 }
 
 interface SubMenu {
@@ -37,15 +40,7 @@ const anonymousPage: Route[] = [
         permissions: [],
         loginRequired: true,
     },
-    {
-        href: ROUTE_PATHS.SignUp,
-        title: "",
-        exact: true,
-        component: SignUp,
-        hidden: true,
-        permissions: [],
-        loginRequired: false,
-    },
+    
 ]
 
 const authorizedPage: Route[] = [
@@ -56,6 +51,16 @@ const authorizedPage: Route[] = [
         title: "Home",
         permissions: [],
         loginRequired: false,
+    },
+    {
+        href: ROUTE_PATHS.SignUp,
+        title: "",
+        exact: true,
+        component: SignUp,
+        hidden: true,
+        permissions: [],
+        loginRequired: false,
+        isLayout: true
     },
     {
         href: ROUTE_PATHS.Shop,
@@ -86,6 +91,22 @@ const authorizedPage: Route[] = [
         exact: true,
         component: ProductDetail,
         title: "ProductDetail",
+        permissions: [],
+        loginRequired: false,
+    },
+    {
+        href: ROUTE_PATHS.History,
+        exact: true,
+        component: HistoryCartPage,
+        title: "HistoryCartPage",
+        permissions: [],
+        loginRequired: false,
+    },
+    {
+        href: ROUTE_PATHS.SuccessCart,
+        exact: true,
+        component: SuccessCart,
+        title: "SuccessCart",
         permissions: [],
         loginRequired: false,
     },

@@ -15,7 +15,7 @@ import { RouteChildrenProps } from "react-router";
 import { Link } from "react-router-dom";
 import "./sign-up.scss";
 import { useAuthContext } from "../../hooks/useAuthContext";
-import banner from "../../assets/images/banner/banner1.png";
+import banner from "../../assets/images/banner/c.jpg";
 import {
   UserOutlined,
   LinkOutlined,
@@ -83,6 +83,17 @@ export default function SignUp() {
 
         console.log("Before API call");
         const response = await accountService.register(registerData);
+        notification.success({
+          className: "notification__item",
+          message: "Đăng ký thành công",
+          // description:
+          //   "Tên đăng nhập đã tồn tại. Vui lòng chọn thông tin khác.",
+          duration: 3,
+
+        });
+        setTimeout(function() {
+          window.location.href = '/sign-in'; 
+        }, 3000);
         console.log("After API call");
         console.log(response); // Log the API response for debugging
 

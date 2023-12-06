@@ -8,16 +8,19 @@ import { ShoppingCartOutlined } from "@ant-design/icons";
 import { Link } from "react-router-dom";
 import moment from "moment";
 import { useAuthContext } from "../../../hooks/useAuthContext";
-
+import LocalUtils from "../../../utils/local";
+import { LOCAL_STORAGE_KEYS } from "../../../constants/local";
+import jwt from 'jsonwebtoken';
 type Props = {
   image: string;
   brand: string;
   name: string;
   price: number | String;
   href: any;
-  onClickItem?: () => void;
+  productId:string
+  onClickItem: (productId: string) => void;
 };
-const CardComponent = ({ image, brand, name, price, href,onClickItem }: Props) => {
+const CardComponent = ({ image, brand, name, price,productId, href,onClickItem }: Props) => {
   const {isAuthenticated} = useAuthContext();
   const formattedPrice = (+price).toLocaleString("vi-VN", {
     style: "currency",
@@ -26,13 +29,60 @@ const CardComponent = ({ image, brand, name, price, href,onClickItem }: Props) =
 
   const showNotification = () => {
     notification.error({
-      className: "notification__item--error",
+      className: "notification__item notification__item--error",
       message: "Đăng nhập để thêm sản phẩm vào giỏ hàng",
-      //   description: 'Sản phẩm đã được xóa thành công!',
+     
       duration: 3,
     });
   };
+  const showNotificationAdd = () => {
+    notification.success({
+      className: "notification__item",
+      message: "Thêm vào giỏ hàng thành công",
+     
+      duration: 3,
+    });
+  };
+    const handleAddToCart = () => {
+      // Use the productId prop directly
+      onClickItem(productId);
+      const accessToken = LocalUtils.get(LOCAL_STORAGE_KEYS.ACCESS_TOKEN);
 
+  const decodedToken = accessToken ? jwt.decode(accessToken) as jwt.JwtPayload : null;
+  
+  const username = decodedToken && typeof decodedToken === 'object'
+    ? decodedToken['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress']
+    : null;
+         try {
+          showNotificationAdd();
+      const productSessionStorageKey = `productList_${username}`;
+      let productList: { id: string; quantity: number }[] = [];
+  
+      const productSessionStorage = sessionStorage.getItem(productSessionStorageKey);
+  
+      if (productSessionStorage) {
+        productList = JSON.parse(productSessionStorage);
+      }
+  
+      const existingIndex = productList.findIndex((item) => item.id === productId);
+  
+      if (existingIndex !== -1) {
+      
+        console.log(`Product with ID ${productId} already exists. Incrementing quantity.`);
+       
+        productList[existingIndex].quantity += 1;
+      } else {
+    
+        productList.push({ id: productId, quantity: 1 });
+      }
+  
+      sessionStorage.setItem(productSessionStorageKey, JSON.stringify(productList));
+      return [{ id: productId, quantity: productList.find((item) => item.id === productId)?.quantity || 1 }];
+    } catch (error) {
+    
+      return []; 
+    }
+    };
   return (
     <>
       <Card
@@ -70,7 +120,7 @@ const CardComponent = ({ image, brand, name, price, href,onClickItem }: Props) =
           </div>
           <div className="card__footer">
           {isAuthenticated ? (
-              <Button className="button__submit" type="primary" onClick={onClickItem}>
+              <Button className="button__submit" type="primary" onClick={handleAddToCart}>
                 <ShoppingCartOutlined /> Thêm vào giỏ
               </Button>
             ) : (

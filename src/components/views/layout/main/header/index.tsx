@@ -59,7 +59,14 @@ const showNotification = () => {
     duration: 3,
   });
 };
-
+const showNotificationDelete = () => {
+  notification.success({
+    className: "notification__item",
+    message: "Xóa sản phẩm thành công",
+    //   description: 'Sản phẩm đã được xóa thành công!',
+    duration: 3,
+  });
+};
 const MainHeader = (props: Props) => {
   const [isModalLogout, setIsModalLogout] = useState(false);
   const [open, setOpen] = useState(false);
@@ -71,21 +78,34 @@ const MainHeader = (props: Props) => {
   useEffect(() => {
     dispatch(getProduct({ pageIndex: 1, pageSize: 100 }));
   }, []);
-  const storedProductListString = sessionStorage.getItem("productList");
-  const storedProductList = storedProductListString
-    ? JSON.parse(storedProductListString)
-    : [];
+  // Assuming you have a constant LOCAL_STORAGE_KEYS.ACCESS_TOKEN defined
+  const accessToken = LocalUtils.get(LOCAL_STORAGE_KEYS.ACCESS_TOKEN);
+
+  // Decode the access token and explicitly assert the type
+  const decodedToken = accessToken ? jwt.decode(accessToken) as jwt.JwtPayload : null;
+  
+  // Check if decodedToken is not null and has the expected property
+  const username = decodedToken && typeof decodedToken === 'object'
+    ? decodedToken['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress']
+    : null;
+  
+    // Use the username to create the product session storage key
+    const productSessionStorageKey = `productList_${username}`;
+  
+    // Get the product list from sessionStorage
+    const storedProductListString = sessionStorage.getItem(productSessionStorageKey);
+  const storedProductList = storedProductListString ? JSON.parse(storedProductListString) : [];
+  
   const combinedProductList = productList.map((product) => {
-    const storedProduct = storedProductList.find(
-      (item: any) => item.id === product.id
-    );
+    const storedProduct = storedProductList.find((item: any) => String(item.id) === String(product.id));
+  
     return {
       ...product,
       product: storedProduct ? storedProduct.id : 0,
       quantity: storedProduct ? storedProduct.quantity : 0,
     };
   });
-
+  
   // const productIdList = storedProductList.map(item => item.id);
   const showModalLogout = () => {
     setIsModalLogout(true);
@@ -101,19 +121,22 @@ const MainHeader = (props: Props) => {
   const handleCancelLog = () => {
     setIsModalLogout(false);
   };
-  const [searchValue, setSearchValue] = useState('');
-  const filteredProducts = productList.filter(product =>
+  const [searchValue, setSearchValue] = useState("");
+  const filteredProducts = productList.filter((product) =>
     product.productName.toLowerCase().includes(searchValue.toLowerCase())
   );
   const content = (
     <div>
       {isAuthenticated ? (
-        <Button
-          className="popoverButton__button popoverButton__button__login"
-          onClick={showModalLogout}
-        >
-          Đăng xuất
-        </Button>
+        <div className="account__profile">
+          <Button
+            className="popoverButton__button popoverButton__button__login account__profile__button"
+            onClick={showModalLogout}
+          >
+            Đăng xuất
+          </Button>
+          <Link to={ROUTE_PATHS.History}>Lịch sử mua hàng</Link>
+        </div>
       ) : (
         <div>
           <Link to={ROUTE_PATHS.SignIn}>
@@ -129,19 +152,20 @@ const MainHeader = (props: Props) => {
     </div>
   );
   const contentSearch = (
-    <div >
+    <div>
       {searchValue && filteredProducts.length > 0 ? (
-        filteredProducts.map(product => (
-          <Link to={ROUTE_PATHS.ProductDetail.replace(":id", product.id.toString())}>
-<div className="searchData" key={product.id}>
-            <img src={product.thumnail} alt="" className="searchData__img" />
-            <h5 className="subTitle">{product.productName}</h5>
-          </div>
+        filteredProducts.map((product) => (
+          <Link
+            to={ROUTE_PATHS.ProductDetail.replace(":id", product.id.toString())}
+          >
+            <div className="searchData" key={product.id}>
+              <img src={product.thumnail} alt="" className="searchData__img" />
+              <h5 className="subTitle">{product.productName}</h5>
+            </div>
           </Link>
-          
         ))
       ) : (
-        <Empty className="emptySearch"/>
+        <Empty className="emptySearch" />
       )}
     </div>
   );
@@ -169,19 +193,10 @@ const MainHeader = (props: Props) => {
   };
   const [quantity, setQuantity] = useState(1);
 
-  const incrementQuantity = () => {
-    setQuantity(quantity + 1);
-  };
-
-  const decrementQuantity = () => {
-    if (quantity > 1) {
-      setQuantity(quantity - 1);
-    }
-  };
   const inputRef = useRef<HTMLInputElement | null>(null); // Explicitly specify the type
   const liRef = useRef<HTMLLIElement | null>(null);
   const [hiding, setHiding] = useState(false);
-  
+
   const handleLiClick = () => {
     setInputVisible(!inputVisible);
     setHiding(false);
@@ -208,6 +223,47 @@ const MainHeader = (props: Props) => {
       document.removeEventListener("click", handleClickOutside);
     };
   }, []);
+  const handleDeleteProduct = (record:any) => {
+    console.log('====================================');
+    console.log("record",record);
+    console.log('====================================');
+    // Lấy danh sách sản phẩm từ sessionStorage
+    const storedProductListString = sessionStorage.getItem(productSessionStorageKey);
+  
+    if (storedProductListString) {
+      let storedProductList = JSON.parse(storedProductListString);
+  
+      // Loại bỏ sản phẩm có id tương ứng
+      storedProductList = storedProductList.filter((item:any) => String(item.id) !== String(record.key));
+  
+      // Cập nhật lại sessionStorage
+      sessionStorage.setItem(productSessionStorageKey, JSON.stringify(storedProductList));
+      showNotificationDelete()
+    } else {
+      
+    }
+  };
+  const [cartItems, setCartItems] = useState(combinedProductList);
+  const incrementQuantity = (productId:any) => {
+    const updatedCart = cartItems.map((item) =>
+      item.id === productId ? { ...item, quantity: item.quantity + 1 } : item
+    );
+    setCartItems(updatedCart);
+    updateSessionStorage(updatedCart);
+  };
+
+  const decrementQuantity = (productId:any) => {
+    const updatedCart = cartItems.map((item) =>
+      item.id === productId && item.quantity > 0 ? { ...item, quantity: item.quantity - 1 } : item
+    );
+    setCartItems(updatedCart);
+    updateSessionStorage(updatedCart);
+  };
+
+  const updateSessionStorage = (cart:any) => {
+    // Save the updated cart in sessionStorage
+    sessionStorage.setItem(productSessionStorageKey, JSON.stringify(cart));
+  };
   return (
     <>
       <Row className={`header ${scrolled ? "scrolled" : ""}`}>
@@ -296,7 +352,7 @@ const MainHeader = (props: Props) => {
               <Row className="cartItem" key={product.id}>
                 <Col xl={4} className="cartItem__left">
                   <img
-                    src={product.img}
+                    src={product.thumnail}
                     alt=""
                     className="cartItem__left__img"
                   />
@@ -329,67 +385,72 @@ const MainHeader = (props: Props) => {
                         currency: "VND",
                       }).format(product.price * product.quantity)}
                     </p>
-                    <Button className="cartItem__delete">
-                      <DeleteOutlined />
-                    </Button>
+                    <button onClick={() => handleDeleteProduct({ key: product.id, name: product.productName, image: product.img, quantity: product.quantity })} className="cartItem__delete">
+  <DeleteOutlined />
+</button>
+
                   </div>
                 </Col>
               </Row>
             ))}
         </div>
-        {isAuthenticated ?
-         <div>
- <div className="drawer__footer">
-          <span>Subtotal</span>
-          <span>
-            {new Intl.NumberFormat("vi-VN", {
-              style: "currency",
-              currency: "VND",
-            }).format(
-              combinedProductList
-                .filter((product) => product.product !== 0)
-                .reduce(
-                  (total, product) => total + product.price * product.quantity,
-                  0
-                )
-            )}
-          </span>
-        </div>
-         <Row className="cart__checkout" gutter={[24, 0]}>
-          <Col xl={12}>
-            <Link to={ROUTE_PATHS.Cart}>
-              <Button className="cart__checkout__button">
-                <ShoppingCartOutlined />
-                <span className="subTitle">Giỏ hàng</span>
-              </Button>
+        {isAuthenticated ? (
+          <div>
+            <div className="drawer__footer">
+              <span>Subtotal</span>
+              <span>
+                {new Intl.NumberFormat("vi-VN", {
+                  style: "currency",
+                  currency: "VND",
+                }).format(
+                  combinedProductList
+                    .filter((product) => product.product !== 0)
+                    .reduce(
+                      (total, product) =>
+                        total + product.price * product.quantity,
+                      0
+                    )
+                )}
+              </span>
+            </div>
+            <Row className="cart__checkout" gutter={[24, 0]}>
+              <Col xl={12}>
+                <Link to={ROUTE_PATHS.Cart}>
+                  <Button className="cart__checkout__button">
+                    <ShoppingCartOutlined />
+                    <span className="subTitle">Giỏ hàng</span>
+                  </Button>
+                </Link>
+              </Col>
+              <Col xl={12}>
+                <Link to={ROUTE_PATHS.Checkout}>
+                  <Button className="cart__checkout__button">
+                    <SendOutlined />
+                    <span className="subTitle">Thanh toán</span>
+                  </Button>
+                </Link>
+              </Col>
+            </Row>
+          </div>
+        ) : (
+          <Empty
+            className="cart__checkout__empty"
+            description="Đăng nhập để xem thông tin"
+          >
+            <Link to={ROUTE_PATHS.SignIn}>
+              <Button type="primary">Đăng nhập</Button>
             </Link>
-          </Col>
-          <Col xl={12}>
-          
-            <Link to={ROUTE_PATHS.Checkout}>
-              <Button className="cart__checkout__button">
-                <SendOutlined />
-                <span className="subTitle">Thanh toán</span>
-              </Button>
-            </Link>
-          </Col>
-        </Row> 
-         </div>
-        :<Empty
-        className="cart__checkout__empty"
-        description="Đăng nhập để xem thông tin"
-         
-      >
-        <Link to={ROUTE_PATHS.SignIn}>
-        <Button type="primary">Đăng nhập</Button>
-        </Link>
-      </Empty>}
-       
-       
-       
+          </Empty>
+        )}
       </Drawer>
-      <Modal open={isModalLogout} onOk={handleOkLog} onCancel={handleCancelLog}>
-        <p>Bạn có muốn đăng xuất hay không?</p>
+      <Modal  okType={"danger"} className="modal__product" centered open={isModalLogout} onOk={handleOkLog} onCancel={handleCancelLog}>
+        <div className="modal__product__content">
+          <h2 className="modal__product__content--title">Đăng xuất</h2>
+          <p className="modal__product__content--desc">
+            Bạn có chắc chắn muốn đăng xuất không?
+          </p>
+        </div>
+  
       </Modal>
     </>
   );

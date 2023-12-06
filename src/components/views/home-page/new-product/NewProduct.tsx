@@ -26,6 +26,10 @@ const NewProduct = () => {
         <Row gutter={24} className="newProduct__product">
   {filteredProducts.slice(0, 4).map((product, index) => {
     const brand = brandList.find(brand => brand.id === product.brandId);
+    const handleItem = ( productId: string) => {
+   
+    };
+  
     return (
       <Col xl={6} key={index}> {/* Added key prop to Col for React performance */}
         <CardComponent
@@ -34,6 +38,8 @@ const NewProduct = () => {
           name={product.productName}
           brand={brand ? brand.name : 'Unknown Brand'}
           price={product.price}
+          productId={product.id.toString()}
+  onClickItem={(productId) => handleItem(productId)}
         />
       </Col>
     );

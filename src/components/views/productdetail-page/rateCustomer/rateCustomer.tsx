@@ -68,9 +68,8 @@ const RateCustomer = () => {
  
   const showNotificationError = () => {
     notification.error({
-      className: "notification__item--error",
+      className: "notification__item notification__item--error",
       message: "Vui lòng đăng nhập để đánh giá",
-      //   description: 'Sản phẩm đã được xóa thành công!',
       duration: 3,
     });
   };
