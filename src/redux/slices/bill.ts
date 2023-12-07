@@ -16,6 +16,7 @@ import { BillState } from "../../@types/cart";
       return data;
     }
   );
+  
   const initialState: BillState = {
     billList: [],
     billDetail: {  // Đảm bảo receiptDetail không phải là null

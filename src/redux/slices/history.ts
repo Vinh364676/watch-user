@@ -12,36 +12,31 @@ export const getHistory = createAsyncThunk(
     }
   );
   
-  export const deleteHistory = createAsyncThunk(
-    "delete/deleteHistory",
-    async (id: number) => {
-
-      await historyService.delete(id);
-      return id; 
-    }
-  );
-  export const createHistory = createAsyncThunk(
-    "create/createHistory",
-    async (HistoryDate: any) => {
-      const { data } = await historyService.post(HistoryDate);
-      return data;
-    }
-  );
   export const updateHistory = createAsyncThunk(
-    "update/upateHistory",
+    "update/updateHistory",
     async (data: any) => {
-      // Assuming you have a service function for updating a brand
-      const { data: updatedBrand } = await historyService.put(data.id, data);
-      return updatedBrand;
+      try {
+        if (!data || !data.id) {
+          console.error('Invalid data object:', data);
+          throw new Error('Invalid data object');
+        }
+  
+        console.log('Updating history with id:', data.id);
+  
+        // Assuming you have a service function for updating history
+        const { data: updatedHistory } = await historyService.put(data.id, data);
+  
+        console.log('Updated history:', updatedHistory);
+  
+        return updatedHistory;
+      } catch (error) {
+        console.error('Error updating history:', error);
+        throw error; // Rethrow the error to be caught in the component
+      }
     }
   );
-  export const getByIdHistory = createAsyncThunk(
-    "get/getByIDHistory",
-    async (id: any) => {
-      const { data } = await historyService.getById(id);
-      return data;
-    }
-  );
+  
+
   const initialState: HistoryState = {
     historyList: [],
     historyDetail:{
@@ -51,7 +46,7 @@ export const getHistory = createAsyncThunk(
       totalPrice:0,
       voucherId:0,
       orderStatus:"",
-      note:""
+      note:"",
 
     },
     historyCount:0
@@ -62,16 +57,7 @@ export const getHistory = createAsyncThunk(
     reducers: {},
     extraReducers: (builder) => {
       builder.addCase(getHistory.fulfilled, (state, action) => {
-          state.historyList = action.payload.result;
-        });
-      builder.addCase(deleteHistory.fulfilled, (state, action) => {
-          state.historyList = state.historyList.filter((History) => History.id !== action.payload);
-        });  
-        builder.addCase(createHistory.fulfilled, (state, action) => {
-          state.historyList.push(action.payload);
-        }); 
-        builder.addCase(getByIdHistory.fulfilled, (state, action) => {
-          state.historyDetail = action.payload.result.items;
+          state.historyList = action.payload.result.items;
         });
         builder.addCase(updateHistory.fulfilled, (state, action) => {
           state.historyList = state.historyList.map((History) =>

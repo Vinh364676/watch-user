@@ -44,6 +44,9 @@ const Checkout = () => {
   const { addressList } = useSelector((state) => state.address);
   const { productList } = useSelector((state) => state.product);
   const { voucherList } = useSelector((state) => state.voucher);
+  console.log('====================================');
+  console.log("voucherList",voucherList);
+  console.log('====================================');
   useEffect(() => {
     dispatch(getAddress({ pageIndex: 1, pageSize: 100 }));
     dispatch(getProduct({ pageIndex: 1, pageSize: 100 }));
@@ -204,40 +207,75 @@ const Checkout = () => {
       duration: 3,
     });
   };
-  const [a, setA] = useState(totalProductAmount + tax + shippingCost);
-  const [voucherId, setVoucherId] = useState<string | null>(null);
-  const onFinishVoucher = (values: any) => {
-    const enteredCode = values.code;
-
-    // Check if enteredCode exists in voucherList
-    const voucher = voucherList.find((voucher) => voucher.code === enteredCode);
-
-    const isCodeValid = voucherList.some(
-      (voucher) => voucher.code === enteredCode
-    );
-
-    let newTotalOrderAmount;
-
-    if (isCodeValid && voucher) {
-      console.log("Matching voucher found. Code is valid:", enteredCode);
-      showNotification();
-      newTotalOrderAmount =
-        totalProductAmount -
-        totalProductAmount * (voucher.value ?? 0) +
-        tax +
-        shippingCost;
-
-      // Set voucherId in state
-      setVoucherId(String(voucher.id));
-    } else {
-      showNotificationError();
-      newTotalOrderAmount = totalProductAmount + tax + shippingCost;
-
-      // Set voucherId as empty string if no valid voucher
-      setVoucherId(null);
-    }
-    setA(newTotalOrderAmount);
+  const showNotificationOrder = () => {
+    notification.success({
+      className: "notification__item",
+      message: "Đặt hàng thành công",
+      //   description: 'Sản phẩm đã được xóa thành công!',
+      duration: 3,
+      onClose: () => {
+        // Redirect to the homepage after the notification is closed
+        window.location.href = '/';
+      },
+    });
   };
+  const [a, setA] = useState(totalProductAmount + tax + shippingCost);
+const [voucherId, setVoucherId] = useState<string | null>(null);
+
+const onFinishVoucher = (values: any) => {
+  const enteredCode = values.code;
+
+  // Check if enteredCode exists in voucherList
+  const voucher = voucherList.find((voucher) => voucher.code === enteredCode);
+
+  const isCodeValid = voucherList.some(
+    (voucher) => voucher.code === enteredCode
+  );
+
+  let newTotalOrderAmount;
+
+  // Check if voucher is valid based on the date
+  const currentDate = new Date();
+  const startDate = voucher ? new Date(voucher.startDate) : null;
+  const endDate = voucher ? new Date(voucher.endDate) : null;
+
+  const isDateValid =
+    voucher &&
+    startDate &&
+    endDate &&
+    startDate <= currentDate &&
+    currentDate <= endDate;
+
+  if (isCodeValid && voucher && isDateValid) {
+    console.log("Matching voucher found. Code is valid:", enteredCode);
+    showNotification();
+    newTotalOrderAmount =
+      totalProductAmount -
+      totalProductAmount * (voucher.value ?? 0) +
+      tax +
+      shippingCost;
+
+    // Ensure newTotalOrderAmount is at least 0
+    newTotalOrderAmount = Math.max(newTotalOrderAmount, 0);
+
+    // Set voucherId in state
+    setVoucherId(String(voucher.id));
+  } else {
+    showNotificationError();
+    newTotalOrderAmount = totalProductAmount + tax + shippingCost;
+
+    // Set voucherId as empty string if no valid voucher
+    setVoucherId(null);
+  }
+
+  // Ensure a is at least 0
+  newTotalOrderAmount = Math.max(newTotalOrderAmount, 0);
+
+  setA(newTotalOrderAmount);
+};
+
+  
+  
   const dataToSend = {
     products: combinedProductList
       .filter((product) => product.product !== 0)
@@ -289,7 +327,11 @@ const Checkout = () => {
 
     if (radioValue === 'a') {
       dispatch(createBill(requestBody));
+      showNotificationOrder()
+      sessionStorage.removeItem(productSessionStorageKey);
     }  else if (radioValue === 'b') {
+      sessionStorage.removeItem(productSessionStorageKey);
+      showNotificationOrder()
       dispatch(createBillVNpay(requestBody))
         .then(response => handlePaymentResponse(response));
     }

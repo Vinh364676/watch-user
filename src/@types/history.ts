@@ -4,7 +4,6 @@ export type HistoryState = {
     historyCount:number
 };
 
-
 export type History = {
     id: number;
     deliverAddress: string;
@@ -13,4 +12,5 @@ export type History = {
     voucherId:number | null;
     orderStatus:string;
     note:string
+   
 };

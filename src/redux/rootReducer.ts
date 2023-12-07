@@ -9,6 +9,8 @@ import customerReducer from "./slices/customer"
 import userReducer from "./slices/user"
 import voucherReducer from "./slices/voucher"
 import historyReducer from "./slices/history"
+import historyDetailReducer from "./slices/historyDetail"
+import paymentReducer from "./slices/payment"
 // ----------------------------------------------------------------------
 
 export const rootPersistConfig = {
@@ -35,6 +37,9 @@ const rootReducer = combineReducers({
   user:userReducer,
   voucher:voucherReducer,
   history:historyReducer,
+  historyDetail:historyDetailReducer,
+  payment:paymentReducer
+
 });
 
 export default rootReducer;
